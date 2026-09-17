@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Prison Life: Lockdown</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#111;font-family:Arial,sans-serif;touch-action:none}
+canvas{display:block;width:100vw;height:100vh;background:#1b1b1b}
+#hint{position:fixed;top:10px;left:50%;transform:translateX(-50%);color:#fff;background:#000b;padding:8px 12px;border-radius:12px;font-size:13px}
+#joy{position:fixed;left:24px;bottom:28px;width:130px;height:130px;border-radius:50%;background:#ffffff22;border:2px solid #fff5}
+#stick{position:absolute;left:35px;top:35px;width:60px;height:60px;border-radius:50%;background:#fff8}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hint">PRISON LIFE: LOCKDOWN • Move with the joystick</div>
+<div id="joy"><div id="stick"></div></div>
+<script>
+const c=document.getElementById('game'),x=c.getContext('2d');
+let W,H,scale=1; function resize(){W=c.width=innerWidth*devicePixelRatio;H=c.height=innerHeight*devicePixelRatio;x.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);W=innerWidth;H=innerHeight} resize(); addEventListener('resize',resize);
+const map={w:1400,h:900};
+let p={x:700,y:500,r:16,s:2.8};
+const walls=[
+{x:0,y:0,w:1400,h:35},{x:0,y:865,w:1400,h:35},{x:0,y:0,w:35,h:900},{x:1365,y:0,w:35,h:900},
+{x:70,y:70,w:390,h:250},{x:520,y:70,w:360,h:250},{x:940,y:70,w:390,h:250},
+{x:70,y:580,w:390,h:220},{x:520,y:580,w:360,h:220},{x:940,y:580,w:390,h:220}
+];
+const rooms=[
+[85,85,360,220,'CELL BLOCK A'],[535,85,330,220,'CELL BLOCK B'],[955,85,360,220,'CELL BLOCK C'],
+[85,595,360,190,'CAFETERIA'],[535,595,330,190,'YARD'],[955,595,360,190,'WORKSHOP']
+];
+let npcs=[
+{x:600,y:430,kind:'guard',vx:.5,vy:0},{x:800,y:460,kind:'guard',vx:-.45,vy:.1},
+{x:500,y:430,kind:'inmate',vx:.3,vy:.4},{x:900,y:500,kind:'inmate',vx:-.3,vy:.2},
+{x:760,y:350,kind:'inmate',vx:.2,vy:-.3}
+];
+let joy={x:0,y:0},active=false;
+const j=document.getElementById('joy'),s=document.getElementById('stick');
+function joyMove(e){let r=j.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,m=Math.hypot(dx,dy),max=48;if(m>max){dx*=max/m;dy*=max/m} joy.x=dx/max;joy.y=dy/max;s.style.transform=`translate(${dx}px,${dy}px)`}
+j.addEventListener('pointerdown',e=>{active=true;j.setPointerCapture(e.pointerId);joyMove(e)});j.addEventListener('pointermove',e=>{if(active)joyMove(e)});j.addEventListener('pointerup',()=>{active=false;joy.x=joy.y=0;s.style.transform='translate(0,0)'});
+addEventListener('keydown',e=>{let k=e.key.toLowerCase();joy.x=(k==='a'||k==='arrowleft')? -1:(k==='d'||k==='arrowright')?1:joy.x;joy.y=(k==='w'||k==='arrowup')?-1:(k==='s'||k==='arrowdown')?1:joy.y});
+function hit(nx,ny){return walls.some(a=>nx+p.r>a.x&&nx-p.r<a.x+a.w&&ny+p.r>a.y&&ny-p.r<a.y+a.h)}
+function loop(){
+x.clearRect(0,0,W,H); let nx=p.x+joy.x*p.s,ny=p.y+joy.y*p.s;if(!hit(nx,p.y))p.x=nx;if(!hit(p.x,ny))p.y=ny;
+for(const n of npcs){n.x+=n.vx;n.y+=n.vy;if(n.x<70||n.x>1330)n.vx*=-1;if(n.y<350||n.y>550)n.vy*=-1}
+let camX=Math.max(0,Math.min(map.w-W,p.x-W/2)),camY=Math.max(0,Math.min(map.h-H,p.y-H/2));
+x.save();x.translate(-camX,-camY);
+x.fillStyle='#555';x.fillRect(0,0,map.w,map.h);
+for(const r of rooms){x.fillStyle='#777';x.fillRect(r[0],r[1],r[2],r[3]);x.fillStyle='#222';x.font='bold 18px Arial';x.fillText(r[4],r[0]+18,r[1]+32)}
+for(const a of walls){x.fillStyle='#292929';x.fillRect(a.x,a.y,a.w,a.h);x.strokeStyle='#888';x.strokeRect(a.x,a.y,a.w,a.h)}
+// central corridor
+x.fillStyle='#aaa';x.fillRect(465,330,475,220);
+x.fillStyle='#444';for(let i=0;i<9;i++)x.fillRect(480+i*52,345,30,18);
+for(const n of npcs){x.beginPath();x.arc(n.x,n.y,15,0,Math.PI*2);x.fillStyle=n.kind==='guard'?'#2459a6':'#b84b42';x.fill();x.fillStyle='#fff';x.font='11px Arial';x.fillText(n.kind==='guard'?'GUARD':'INMATE',n.x-24,n.y-21)}
+x.beginPath();x.arc(p.x,p.y,p.r,0,Math.PI*2);x.fillStyle='#f2c94c';x.fill();x.strokeStyle='#111';x.lineWidth=3;x.stroke();x.fillStyle='#111';x.font='bold 12px Arial';x.fillText('YOU',p.x-14,p.y-23);
+x.restore();
+requestAnimationFrame(loop)} loop();
+</script>
+</body></html>
